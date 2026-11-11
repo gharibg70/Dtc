@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>اختبار قاعدة البيانات</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Arial, sans-serif; }
+    body { background: #f5f5f5; padding: 20px; }
+    .container { max-width: 800px; margin: 0 auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+    h1 { color: #0f6b45; margin-bottom: 20px; text-align: center; }
+    .status { padding: 15px; border-radius: 8px; margin: 15px 0; font-weight: bold; }
+    .success { background: #d1fae5; color: #065f46; border: 2px solid #10b981; }
+    .error { background: #fee2e2; color: #991b1b; border: 2px solid #dc2626; }
+    .info { background: #dbeafe; color: #1e40af; border: 2px solid #3b82f6; }
+    .table-list { margin-top: 20px; }
+    .table-item { background: #f9fafb; padding: 12px; margin: 8px 0; border-radius: 6px; border-right: 4px solid #0f6b45; }
+    .table-name { font-weight: bold; color: #0f6b45; font-size: 16px; }
+    .table-count { color: #6b7280; font-size: 14px; margin-top: 4px; }
+    button { background: #0f6b45; color: white; border: none; padding: 12px 24px; border-radius: 8px; cursor: pointer; font-size: 16px; margin-top: 20px; width: 100%; }
+    button:hover { background: #0a4d30; }
+    .loading { text-align: center; padding: 40px; color: #6b7280; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🔍 اختبار قاعدة البيانات</h1>
+    <div id="result">
+      <div class="loading">جاري الاختبار...</div>
+    </div>
+    <button onclick="testDatabase()">إعادة الاختبار</button>
+  </div>
+
+  <script src="config.js"></script>
+  <script>
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    async function testDatabase() {
+      const resultDiv = document.getElementById('result');
+      resultDiv.innerHTML = '<div class="loading">جاري الاختبار...</div>';
+
+      try {
+        // قائمة الجداول المتوقعة
+        const expectedTables = [
+          'users',
+          'buses',
+          'routes',
+          'stops',
+          'schedules',
+          'bus_tracking',
+          'subscriptions',
+          'notifications'
+        ];
+
+        let html = '';
+        let successCount = 0;
+        let errorCount = 0;
+        const foundTables = [];
+
+        // اختبار كل جدول
+        for (const table of expectedTables) {
+          try {
+            const { data, error, count } = await supabase
+              .from(table)
+              .select('*', { count: 'exact', head: true });
+
+            if (error) {
+              if (error.message.includes('does not exist') || error.code === '42P01') {
+                html += `<div class="table-item" style="border-right-color: #dc2626;">
+                  <div class="table-name" style="color: #dc2626;">❌ ${table}</div>
+                  <div class="table-count">الجدول غير موجود</div>
+                </div>`;
+                errorCount++;
+              } else {
+                html += `<div class="table-item" style="border-right-color: #f59e0b;">
+                  <div class="table-name" style="color: #f59e0b;">⚠️ ${table}</div>
+                  <div class="table-count">خطأ: ${error.message}</div>
+                </div>`;
+                errorCount++;
+              }
+            } else {
+              html += `<div class="table-item">
+                <div class="table-name">✅ ${table}</div>
+                <div class="table-count">عدد السجلات: ${count || 0}</div>
+              </div>`;
+              foundTables.push(table);
+              successCount++;
+            }
+          } catch (err) {
+            html += `<div class="table-item" style="border-right-color: #dc2626;">
+              <div class="table-name" style="color: #dc2626;">❌ ${table}</div>
+              <div class="table-count">خطأ في الاتصال</div>
+            </div>`;
+            errorCount++;
+          }
+        }
+
+        // عرض النتيجة النهائية
+        let statusHtml = '';
+        if (successCount === expectedTables.length) {
+          statusHtml = `<div class="status success">
+            ✅ ممتاز! جميع الجداول موجودة ومتصلة بنجاح (${successCount}/${expectedTables.length})
+          </div>`;
+        } else if (successCount > 0) {
+          statusHtml = `<div class="status info">
+            ⚠️ بعض الجداول موجودة (${successCount}/${expectedTables.length}) - تحتاج إلى إنشاء الجداول المفقودة
+          </div>`;
+        } else {
+          statusHtml = `<div class="status error">
+            ❌ لا توجد جداول - قاعدة البيانات فارغة أو غير موجودة
+          </div>`;
+        }
+
+        resultDiv.innerHTML = statusHtml + '<div class="table-list">' + html + '</div>';
+
+      } catch (err) {
+        resultDiv.innerHTML = `<div class="status error">
+          ❌ خطأ في الاتصال بقاعدة البيانات: ${err.message}
+        </div>`;
+      }
+    }
+
+    // تشغيل الاختبار عند تحميل الصفحة
+    window.onload = testDatabase;
+  </script>
+</body>
+</html>
